@@ -30,9 +30,28 @@
   "n": 320
  },
  "im1": {
-  "x0": 7539.877818752372,
-  "y0": 299939.0376980428,
-  "spacing_m": 240.0,
-  "n": 128
+  "n": 161,
+  "spacing_m": 250.0,
+  "kind": "enu"
+ },
+ "chandrayaan3": {
+  "n": 161,
+  "spacing_m": 250.0,
+  "kind": "enu"
+ },
+ "change4": {
+  "n": 161,
+  "spacing_m": 250.0,
+  "kind": "enu"
+ },
+ "apollo11": {
+  "n": 161,
+  "spacing_m": 250.0,
+  "kind": "enu"
+ },
+ "apollo17": {
+  "n": 161,
+  "spacing_m": 250.0,
+  "kind": "enu"
  }
 }

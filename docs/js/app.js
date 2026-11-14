@@ -142,12 +142,14 @@ function drawCards() {
 function drawVerdict() {
   const sm = st.summary, d = fmtDate(st.winStart).slice(0, 10), sun = sm.sunPct, ea = sm.earthPct;
   let cls, head;
-  if (sun >= 75 && ea >= 45) { cls = 'good'; head = '✅ Good place to land'; }
-  else if (sun >= 40) { cls = 'mid'; head = '⚠️ Possible, but risky'; }
-  else { cls = 'bad'; head = '❌ Poor place to land'; }
+  if (sun < 3) { cls = 'bad'; head = '❌ No sunlight here — permanent shadow'; }
+  else if (ea < 5) { cls = 'bad'; head = '❌ No direct radio to Earth here'; }
+  else if (sun >= 75 && ea >= 45) { cls = 'good'; head = '✅ Good place to land'; }
+  else if (sun >= 40 && ea >= 20) { cls = 'mid'; head = '⚠️ Possible, but risky'; }
+  else { cls = 'bad'; head = sun < 40 ? '❌ Poor place to land — too little sunlight' : '❌ Poor place to land — Earth mostly hidden'; }
   const parts = [`If you land at <b>${st.site.name}</b> on <b>${d}</b>, over the next month:`,
     `☀️ the Sun gives <b>power ${pct(sun)}</b> of the time${sm.longestNightH > 0 ? ` (longest dark stretch: <b>${fmtDur(sm.longestNightH)}</b>)` : ' — it never sets!'};`,
-    `📡 Earth is visible for <b>radio ${pct(ea)}</b> of the time${sm.longestEarthGapH > 0 && ea < 100 ? ` (longest silence: <b>${fmtDur(sm.longestEarthGapH)}</b>)` : ''}.`];
+    ea < 5 ? '📡 Earth is <b>never visible</b> — the lander would need a relay satellite (like Chang\'e 4 used).' : `📡 Earth is visible for <b>radio ${pct(ea)}</b> of the time${sm.longestEarthGapH > 0 && ea < 100 ? ` (longest silence: <b>${fmtDur(sm.longestEarthGapH)}</b>)` : ''}.`];
   $('verdict').className = 'verdict ' + cls; $('verdict').innerHTML = `<b class="big">${head}</b>${parts.join('<br>')}`;
 }
 
@@ -367,6 +369,7 @@ function setMode(m) {
   st.lastResult = null; drawAll(); writeHash();
 }
 
+const FIRST_HASH = location.hash;
 async function main() {
   document.body.dataset.mode = 'explore';
   const [, , sitesJson] = await Promise.all([A.loadEphemeris('data'), T.loadGrid('data/grid'), fetch('data/sites.json').then(r => r.json())]);
@@ -426,7 +429,7 @@ async function main() {
   $('btnTour').onclick = () => showTour(0);
   $('tourNext').onclick = () => showTour(tourI + 1); $('tourBack').onclick = () => showTour(tourI - 1); $('tourSkip').onclick = () => showTour(-1);
   let seen = false; try { seen = localStorage.getItem('sl_tour') === '1'; } catch {}
-  if (!seen && !location.hash) setTimeout(() => showTour(0), 900);
+  if (!seen && !FIRST_HASH) setTimeout(() => showTour(0), 900);
   $('btnShare').onclick = async () => { writeHash(); try { await navigator.clipboard.writeText(location.href); toast('Link copied — anyone can open this exact mission'); } catch { toast(location.href); } };
   $('btnAbout').onclick = () => { $('aboutBody').innerHTML = aboutHTML(); $('about').showModal(); };
   // timeline scrubbing

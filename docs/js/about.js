@@ -21,10 +21,16 @@ Panels/antennas are assumed 2 m above the ground.</p>
 <li><b>Curated sites</b> are computed exactly at their coordinates (720 directions).</li>
 <li><b>Anywhere on the map</b> uses a precomputed 2 km grid (≈17,700 points within ~150 km of the pole), blended between neighbours.
 Narrow ridge crests can be under-represented at 2 km spacing, so curated sites are more accurate than map clicks.</li>
-<li>Sites north of 80°S (Apollo, Chandrayaan-3, Chang'e 4) use a smooth-sphere horizon: local hills are not modelled there.</li>
+<li>Listed sites outside the polar maps (Apollo 11 &amp; 17, IM-1, Chandrayaan-3, Chang'e 4) use NASA's global LOLA map LDEM_64 (~470 m), read directly from the PDS archive.</li>
+<li>Custom coordinates outside the south-pole map use a smooth-sphere horizon (no local hills).</li>
 </ul>
 
-<h3>3 · Validation</h3>
+<h3>3 · The 3D view</h3>
+<p>The 3D landscape is built from the same LOLA elevation data (40 m close-ups around polar sites, 200 m tiles for any point on the map, ~470 m elsewhere),
+placed on the curved Moon in the site's local frame at true scale. The Sun lights it from its real direction, so shadows are the real shadows for that date and hour;
+Earth is lit by the same Sun, so its phase is correct. Beyond the close-up terrain, the far skyline is drawn from the LOLA horizon calculation.</p>
+
+<h3>4 · Validation</h3>
 <p><b>Ephemeris vs JPL Horizons (DE441)</b>, queried directly from the Horizons API with a surface observer on the Moon:</p>
 <table><tr><th>UTC</th><th>Target @ site</th><th>Horizons az / el</th><th>SouthLight az / el</th></tr>
 <tr><td>2026-12-01 00:00</td><td>Sun @ Apollo 11</td><td>268.6487 / −13.4222</td><td>268.6487 / −13.4222</td></tr>
@@ -39,7 +45,7 @@ Published work finds the best ridge spots receive roughly 80–92% average sunli
 about 10% of the mapped area never sees the Sun in 2027 — consistent with mapped permanently shadowed regions.
 Differences come from the year analysed (lighting changes over the 18.6-year lunar cycle), height above ground and DEM resolution.</p>
 
-<h3>4 · The lander simulation (simplified, educational)</h3>
+<h3>5 · The lander simulation (simplified, educational)</h3>
 <ul>
 <li><b>Power:</b> hour by hour, panels produce power in proportion to how much of the solar disk is above the terrain; a battery covers the dark hours.</li>
 <li><b>Radio:</b> direct-to-Earth contact only when Earth's centre is above the terrain horizon (no relay satellites).</li>
@@ -52,7 +58,7 @@ Differences come from the year analysed (lighting changes over the 18.6-year lun
 <h3>Data sources</h3>
 <ul>
 <li>NASA/JPL NAIF SPICE generic kernels: de440s.bsp, moon_pa_de440_200625.bpc, moon_de440_250416.tf, pck00011.tpc, naif0012.tls</li>
-<li>NASA LRO LOLA gridded topography, PDS Geosciences Node: LDEM_85S_40M, LDEM_75S_240M</li>
+<li>NASA LRO LOLA gridded topography, PDS Geosciences Node: LDEM_85S_40M, LDEM_75S_240M, LDEM_64 (global)</li>
 <li>JPL Horizons API (validation)</li>
 <li>Site coordinates: LROC (IM-2), IAU Gazetteer of Planetary Nomenclature (Statio Shiv Shakti), Mazarico et al. 2011 (connecting ridge), public mission reports.</li>
 </ul>

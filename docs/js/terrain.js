@@ -44,7 +44,7 @@ function statInterp(k, lat, lon) {
   const fx = x / G.spacing_m + G.nhalf, fy = y / G.spacing_m + G.nhalf;
   const i = Math.floor(fx), j = Math.floor(fy), u = fx - i, v = fy - j;
   const a = stat(k, i, j), b = stat(k, i + 1, j), c = stat(k, i, j + 1), d = stat(k, i + 1, j + 1);
-  const vals = [[a, (1 - u) * (1 - v)], [b, u * (1 - v)], [c, (1 - u) * v], [d, u * v]].filter(p => isFinite(p[0]) && p[0] >= 0);
+  const vals = [[a, (1 - u) * (1 - v)], [b, u * (1 - v)], [c, (1 - u) * v], [d, u * v]].filter(p => isFinite(p[0]) && (k !== STAT.slope || p[0] >= 0));
   const w = vals.reduce((s, p) => s + p[1], 0);
   return w ? vals.reduce((s, p) => s + p[0] * p[1], 0) / w : NaN;
 }

@@ -26,9 +26,10 @@ Any scenario can be shared as a link.
 
 ## How it works
 1. **Sun and Earth positions** (`pipeline/ephemeris.py`): NASA/JPL NAIF SPICE (DE440 planetary ephemeris and DE440 lunar orientation) gives apparent Sun and Earth vectors from the Moon, hourly, in the lunar Mean-Earth frame. The browser converts them to topocentric azimuth and elevation for any site.
-2. **Terrain horizon** (`pipeline/horizon.py`): ray-marching across the LOLA DEMs LDEM_85S_40M and LDEM_75S_240M, out to 650 km, with lunar curvature included. This follows the method of Mazarico et al. (2011). There is no atmosphere, so there is no refraction.
-3. **South-pole grid** (`pipeline/build_grid.py`): horizon masks, slope and 2027 sunlight / Earth-visibility statistics for about 17,700 points on a 2 km grid. Masks are tiled so the browser loads only what it needs.
-4. **Lander model** (`docs/js/sim.js`): a simplified solar + battery energy balance, direct-to-Earth visibility, a slope limit, and a rocket-equation fuel budget.
+2. **3D view**: the same LOLA data rendered as a true-scale landscape (three.js) lit by the real Sun direction, so the shadows are real.
+3. **Terrain horizon** (`pipeline/horizon.py`): ray-marching across the LOLA DEMs LDEM_85S_40M and LDEM_75S_240M, out to 650 km, with lunar curvature included. This follows the method of Mazarico et al. (2011). There is no atmosphere, so there is no refraction.
+4. **South-pole grid** (`pipeline/build_grid.py`): horizon masks, slope and 2027 sunlight / Earth-visibility statistics for about 17,700 points on a 2 km grid. Masks are tiled so the browser loads only what it needs.
+5. **Lander model** (`docs/js/sim.js`): a simplified solar + battery energy balance, direct-to-Earth visibility, a slope limit, and a rocket-equation fuel budget.
 
 ## Validation
 - The ephemeris matches the **JPL Horizons API** to within 0.0001° in azimuth and elevation (see `validation/horizons_check.md`).
@@ -47,11 +48,13 @@ bash pipeline/download_data.sh
 python3 pipeline/ephemeris.py data_raw docs/data
 python3 pipeline/build_sites.py
 python3 pipeline/build_grid.py            # ~15 min on 2 cores
+python3 pipeline/build_dem3d.py
+python3 pipeline/build_global_sites.py   # range-reads LDEM_64 from PDS
 ```
 
 ## NASA data used
 - NASA/JPL NAIF SPICE generic kernels: `de440s.bsp`, `moon_pa_de440_200625.bpc`, `moon_de440_250416.tf`, `pck00011.tpc`, `naif0012.tls`
-- NASA LRO LOLA gridded topography, PDS Geosciences Node: `LDEM_85S_40M`, `LDEM_75S_240M`
+- NASA LRO LOLA gridded topography, PDS Geosciences Node: `LDEM_85S_40M`, `LDEM_75S_240M`, global `LDEM_64`
 - JPL Horizons API (validation)
 
 ## Limitations
@@ -59,7 +62,7 @@ python3 pipeline/build_grid.py            # ~15 min on 2 cores
 - At 40–240 m resolution, the terrain cannot show boulders.
 - Panel orientation, temperature and lander geometry are not modelled.
 - The lander specifications are generic.
-- Sites north of 80°S use a smooth-sphere horizon.
+- Custom coordinates outside the south-pole map use a smooth-sphere horizon.
 - The ephemeris covers Nov 2026 to Dec 2028.
 
 ## Use of AI

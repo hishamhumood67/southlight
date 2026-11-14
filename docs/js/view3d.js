@@ -26,7 +26,7 @@ async function terrainFor(site) {
   if (site.id && PATCHES[site.id]) {
     const p = PATCHES[site.id];
     const raw = new Int16Array(await (await fetch(`${TILES.base}/p_${site.id}.bin`)).arrayBuffer());
-    return { n: p.n, sp: p.spacing_m, x0: p.x0, y0: p.y0, h: Float32Array.from(raw) };
+    return { n: p.n, sp: p.spacing_m, x0: p.x0, y0: p.y0, h: Float32Array.from(raw), enu: p.kind === 'enu' };
   }
   if (site.lat > -84.6) return null;
   const [x0, y0] = toXY(site.lat, site.lon), sp = TILES.spacing_m, T = TILES.tile, n = 161;
@@ -59,7 +59,7 @@ function regolithTexture() {
     for (const { f, a } of oct) { const fx = x / N * f, fy = y / N * f, x0 = Math.floor(fx), y0 = Math.floor(fy), tx = smooth(fx - x0), ty = smooth(fy - y0);
       const A = a[(y0 % f) * f + x0 % f], B = a[(y0 % f) * f + (x0 + 1) % f], C = a[((y0 + 1) % f) * f + x0 % f], D = a[((y0 + 1) % f) * f + (x0 + 1) % f];
       v += amp * (A + (B - A) * tx + (C - A) * ty + (A - B - C + D) * tx * ty); tot += amp; amp *= 0.55; }
-    const k = Math.round(150 + (v / tot - 0.5) * 120); const o = (y * N + x) * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = k; im.data[o + 3] = 255;
+    const k = Math.round(160 + (v / tot - 0.5) * 80); const o = (y * N + x) * 4; im.data[o] = im.data[o + 1] = im.data[o + 2] = k; im.data[o + 3] = 255;
   }
   g.putImageData(im, 0, 0);
   // small craters
@@ -132,11 +132,18 @@ export class View3D {
     let h0 = site.heightM || 0;
     let geo, half;
     if (T) {
-      const { n, sp, x0, y0, h } = T; h0 = h[(n >> 1) * n + (n >> 1)];
-      const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), rep = sp / 160;
+      const { n, sp, x0, y0, h, enu } = T; h0 = h[(n >> 1) * n + (n >> 1)];
+      const pos = new Float32Array(n * n * 3), col = new Float32Array(n * n * 3), uv = new Float32Array(n * n * 2), rep = sp / 700;
       const o = up.map(v => v * (R + h0));
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const k = j * n + i, x = x0 + (i - (n - 1) / 2) * sp, y = y0 - (j - (n - 1) / 2) * sp;
+        const k = j * n + i;
+        if (enu) {
+          const e = (i - (n - 1) / 2) * sp, nn = -(j - (n - 1) / 2) * sp, d = Math.hypot(e, nn), rr = R + h[k];
+          pos.set([e, rr * Math.cos(d / R) - (R + h0), -nn], k * 3);
+          const v = 0.42 + 0.06 * Math.sin(i * 12.9898 + j * 78.233) * Math.sin(i * 0.37 + j * 0.61);
+          col.set([v, v * 0.985, v * 0.96], k * 3); uv.set([i * rep, j * rep], k * 2); continue;
+        }
+        const x = x0 + (i - (n - 1) / 2) * sp, y = y0 - (j - (n - 1) / 2) * sp;
         const [la, lo] = toLatLon(x, y), rr = R + h[k];
         const p = [rr * Math.cos(la) * Math.cos(lo) - o[0], rr * Math.cos(la) * Math.sin(lo) - o[1], rr * Math.sin(la) - o[2]];
         const e = p[0] * east[0] + p[1] * east[1] + p[2] * east[2], nn = p[0] * north[0] + p[1] * north[1] + p[2] * north[2], u = p[0] * up[0] + p[1] * up[1] + p[2] * up[2];
@@ -147,14 +154,14 @@ export class View3D {
       const idx = []; for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) { const a = j * n + i; idx.push(a, a + n, a + 1, a + 1, a + n, a + n + 1); }
       geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
       geo.setIndex(idx); geo.computeVertexNormals(); half = (n - 1) / 2 * sp;
-      this.terrainNote = sp <= 40 ? 'LOLA 40 m terrain' : `LOLA ${sp} m terrain`;
+      this.terrainNote = enu ? 'NASA LOLA global terrain (~470 m)' : sp <= 40 ? 'NASA LOLA 40 m terrain' : `NASA LOLA ${sp} m terrain`;
     } else {
       // no polar DEM here: gentle generic plain (clearly labelled)
       const n = 161, sp = 60; half = (n - 1) / 2 * sp; geo = new THREE.PlaneGeometry(half * 2, half * 2, n - 1, n - 1); geo.rotateX(-Math.PI / 2);
       const p = geo.attributes.position; for (let i = 0; i < p.count; i++) { const x = p.getX(i), z = p.getZ(i); p.setY(i, 6 * Math.sin(x / 700) * Math.cos(z / 900) + 3 * Math.sin(x / 210 + z / 330) - (x * x + z * z) / (2 * R)); }
       const uvA = geo.attributes.uv; for (let i = 0; i < uvA.count; i++) uvA.setXY(i, uvA.getX(i) * 60, uvA.getY(i) * 60);
       const col = new Float32Array(p.count * 3).fill(0.45); geo.setAttribute('color', new THREE.BufferAttribute(col, 3)); geo.computeVertexNormals(); h0 = 0;
-      this.terrainNote = 'Generic plain — no LOLA polar terrain loaded for this site';
+      this.terrainNote = 'Illustration only — real terrain is loaded for the listed sites and the south-pole map';
     }
     this.half = half;
     this.terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, map: this.detail, roughness: 0.97, metalness: 0 }));
