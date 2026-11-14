@@ -1,0 +1,8 @@
+{
+ "spacing_m": 200.0,
+ "tile": 128,
+ "ntiles": 13,
+ "half_m": 166400.0,
+ "layout": "tile (ti,tj): x from -half+ti*tile*sp, y from +half-tj*tile*sp (row 0 north); int16 metres above 1737.4 km",
+ "source": "LOLA LDEM_85S_40M (3x3 averaged) + LDEM_75S_240M"
+}

@@ -43,6 +43,7 @@ async function setSite(site, { keepPlanned = false } = {}) {
   $('inLat').value = site.lat.toFixed(3); $('inLon').value = site.lon.toFixed(3);
   map.setCurrent(site.lat, site.lon);
   recompute(); writeHash();
+  update3DSite();
 }
 
 // ---------- time & series
@@ -59,7 +60,7 @@ function recompute() {
 const idxAt = ms => Math.max(0, Math.min(st.series.t.length - 1, Math.round((ms - st.winStart) / HOUR)));
 
 // ---------- drawing
-function drawAll() { if (!st.series) return; drawSky(); drawTimeline(); drawCards(); drawLearn(); if (st.mode === 'plan') { drawPlan(); drawSeasons(); drawCompare(); } }
+function drawAll() { if (!st.series) return; drawSky(); drawTimeline(); drawCards(); drawVerdict(); drawLearn(); if (st.mode === 'plan') { drawPlan(); drawSeasons(); drawCompare(); } }
 
 function drawSky() {
   const s = st.series, obs = st.site.obs, ms = st.cursor;
@@ -75,10 +76,13 @@ function drawSky() {
   const earthLit = (1 - Math.cos(elong)) / 2;
   sky.set({ mask: st.site.mask, sun, earth, sunFrac, earthLit, sunPath, earthPath,
     elMin: Math.max(-8, Math.min(-2, minMask - 1.5)), elMax: Math.min(90, Math.max(14, maxEl + 4, maxMask + 4)) });
+  if (v3d) v3d.setSky(sun, earth, sunFrac);
   const eVis = earth.el > A.horizonAt(st.site.mask, earth.az);
+  if (v3d && viewMode === 'astro') { const yawAz = ((-v3d.yaw * 180 / Math.PI) % 360 + 360) % 360; const D = ['N','NE','E','SE','S','SW','W','NW'][Math.round(yawAz / 45) % 8]; $('dirLabel').textContent = `Facing ${D} (${Math.round(yawAz)}°) · Sun ${dirName(sun.az)} · Earth ${dirName(earth.az)}`; } else $('dirLabel').textContent = '';
   $('skyBadge').innerHTML = `<span class="pill ${sunFrac > 0.5 ? 'on sun' : 'off'}">☀ ${sunFrac > 0.5 ? 'Sunlit' : 'Dark'}</span><span class="pill ${eVis ? 'on earth' : 'off'}">📡 ${eVis ? 'Earth link' : 'No Earth'}</span>`;
   $('readout').textContent = `${fmtDate(ms)} · Sun ${sun.el.toFixed(1)}° high · Earth ${earth.el.toFixed(1)}°`;
 }
+function dirName(az) { return ['N','NE','E','SE','S','SW','W','NW'][Math.round(az / 45) % 8]; }
 function dirVec(p) { const a = p.az * Math.PI / 180, e = p.el * Math.PI / 180; return [Math.cos(e) * Math.sin(a), Math.cos(e) * Math.cos(a), Math.sin(e)]; }
 
 function drawTimeline() {
@@ -126,13 +130,25 @@ function drawCards() {
   const eaEv = nextEventText(s.earthVis, k, 0.5, 'Earthset', 'Earthrise');
   const lit = s.sunFrac[k] > 0.5, evis = s.earthVis[k];
   $('cards').innerHTML = `
-    <div class="card"><div class="t">Sun height now</div><div class="v ${lit ? 'sun' : 'bad'}">${s.sunEl[k].toFixed(1)}°</div><div class="s">${lit ? 'above the terrain ✓' : `terrain here is ${s.sunHz[k].toFixed(1)}° high`}</div></div>
-    <div class="card"><div class="t">${lit ? 'Sunset in' : 'Sunrise in'}</div><div class="v ${lit ? 'sun' : 'bad'}">${sunEv.v}</div><div class="s">${sunEv.s}</div></div>
-    <div class="card"><div class="t">Earth</div><div class="v ${evis ? 'earth' : 'bad'}">${evis ? 'In view' : 'Hidden'}</div><div class="s">${s.earthEl[k].toFixed(1)}° high · ${evis ? 'radio contact ✓' : 'no direct radio'}</div></div>
-    <div class="card"><div class="t">${evis ? 'Earthset in' : 'Earthrise in'}</div><div class="v ${evis ? 'earth' : 'bad'}">${eaEv.v}</div><div class="s">${eaEv.s}</div></div>
-    <div class="card wide"><div class="t">Next ${WINDOW_DAYS} days from landing</div>
+    <div class="card"><div class="t">☀️ Sun right now</div><div class="v ${lit ? 'sun' : 'bad'}">${lit ? 'Shining' : 'Hidden'}</div><div class="s">${s.sunEl[k].toFixed(1)}° above the flat horizon · ${lit ? 'panels make power' : `hills here are ${s.sunHz[k].toFixed(1)}° high`}</div></div>
+    <div class="card"><div class="t">${lit ? '⏳ Time until dark' : '⏳ Time until sunlight'}</div><div class="v ${lit ? 'sun' : 'bad'}">${sunEv.v}</div><div class="s">${sunEv.s}</div></div>
+    <div class="card"><div class="t">📡 Radio to Earth</div><div class="v ${evis ? 'earth' : 'bad'}">${evis ? 'Yes' : 'No'}</div><div class="s">${s.earthEl[k].toFixed(1)}° high · ${evis ? 'Earth is above the hills' : 'Earth is hidden'}</div></div>
+    <div class="card"><div class="t">${evis ? '⏳ Time until radio lost' : '⏳ Time until radio back'}</div><div class="v ${evis ? 'earth' : 'bad'}">${eaEv.v}</div><div class="s">${eaEv.s}</div></div>
+    <div class="card wide"><div class="t">Details · next ${WINDOW_DAYS} days</div>
       <div class="s" style="font-size:13px;color:#e5e9f2;margin-top:4px">☀ Sunlight <b>${pct(sm.sunPct)}</b> · 📡 Earth <b>${pct(sm.earthPct)}</b> · ✔ Both <b>${pct(sm.bothPct)}</b><br>
       Longest darkness <b>${fmtDur(sm.longestNightH)}</b> · longest radio gap <b>${fmtDur(sm.longestEarthGapH)}</b> · highest Sun <b>${sm.maxSunEl.toFixed(1)}°</b></div></div>`;
+}
+
+function drawVerdict() {
+  const sm = st.summary, d = fmtDate(st.winStart).slice(0, 10), sun = sm.sunPct, ea = sm.earthPct;
+  let cls, head;
+  if (sun >= 75 && ea >= 45) { cls = 'good'; head = '✅ Good place to land'; }
+  else if (sun >= 40) { cls = 'mid'; head = '⚠️ Possible, but risky'; }
+  else { cls = 'bad'; head = '❌ Poor place to land'; }
+  const parts = [`If you land at <b>${st.site.name}</b> on <b>${d}</b>, over the next month:`,
+    `☀️ the Sun gives <b>power ${pct(sun)}</b> of the time${sm.longestNightH > 0 ? ` (longest dark stretch: <b>${fmtDur(sm.longestNightH)}</b>)` : ' — it never sets!'};`,
+    `📡 Earth is visible for <b>radio ${pct(ea)}</b> of the time${sm.longestEarthGapH > 0 && ea < 100 ? ` (longest silence: <b>${fmtDur(sm.longestEarthGapH)}</b>)` : ''}.`];
+  $('verdict').className = 'verdict ' + cls; $('verdict').innerHTML = `<b class="big">${head}</b>${parts.join('<br>')}`;
 }
 
 function drawLearn() {
@@ -276,6 +292,33 @@ function showResult(r) {
     <p class="disclaimer">Educational simulation: real NASA Sun/Earth/terrain data, simplified lander power and fuel models (score weights: power 40, radio 25, terrain 20, fuel 15).</p></div>`;
 }
 
+// ---------- guided tour
+const TOUR = [
+  { t: null, h: 'Welcome to SouthLight 👋', p: 'SouthLight answers one question: <b>if a spacecraft lands HERE on THIS date, will it get sunlight for power and see Earth for radio?</b> At the Moon\'s south pole both are hard, because the Sun skims the horizon and mountains block it. Everything you see uses real NASA data.' },
+  { t: '.panel.left', h: '1 · Choose a place', p: 'Pick a famous landing site from the list, or <b>tap the map</b>. The map shows the south pole: <b>bright = lots of sunlight</b>, <b>black = craters that never see the Sun</b>.' },
+  { t: '.skywrap', h: '2 · Look around', p: 'This is the <b>real NASA terrain</b> at your site. The Sun shines from its true direction, so you see the real long shadows. <b>Drag</b> to turn your head, or switch to <b>🛸 Drone view</b> to fly above the craters.' },
+  { t: '#timeline', h: '3 · Choose a time', p: 'This strip is the <b>next month, hour by hour</b>. <b style="color:#fbbf24">Yellow</b> = Sun up (power). <b style="color:#60a5fa">Blue</b> = Earth visible (radio). <b style="color:#34d399">Green</b> = both. <b>Black gaps = danger.</b> Tap it to jump in time, or press ▶ to watch.' },
+  { t: '#verdict', h: '4 · The answer', p: 'Here SouthLight gives you a <b>plain verdict</b>, and below it the countdowns: how long until dark, and how long until radio is lost.' },
+  { t: '.modes', h: '5 · Plan and Launch', p: '<b>📋 Plan</b>: compare sites, see the best months, and find a <b>Plan B</b> if the launch is delayed. <b>🚀 Launch</b>: send a virtual lander and see if it survives. Have fun!' },
+];
+let tourI = 0;
+function showTour(i) {
+  document.querySelectorAll('.spot').forEach(e => e.classList.remove('spot'));
+  if (i < 0 || i >= TOUR.length) { $('tour').classList.add('hidden'); try { localStorage.setItem('sl_tour', '1'); } catch {} return; }
+  tourI = i; const s = TOUR[i]; $('tour').classList.remove('hidden');
+  $('tourStep').textContent = `Step ${i + 1} of ${TOUR.length}`; $('tourTitle').textContent = s.h; $('tourText').innerHTML = s.p;
+  $('tourBack').style.visibility = i ? 'visible' : 'hidden'; $('tourNext').textContent = i === TOUR.length - 1 ? 'Start exploring 🚀' : 'Next';
+  const box = document.querySelector('.tourbox');
+  if (!s.t) { box.style.left = '50%'; box.style.top = '30%'; box.style.transform = 'translate(-50%,0)'; document.body.classList.add('dim'); return; }
+  const el = document.querySelector(s.t); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); el.classList.add('spot');
+  setTimeout(() => {
+    const r = el.getBoundingClientRect(), bw = Math.min(360, innerWidth - 20); box.style.transform = 'none';
+    let left = r.right + 14, top = Math.max(10, r.top);
+    if (left + bw > innerWidth - 10) { left = Math.max(10, Math.min(innerWidth - bw - 10, r.left)); top = r.bottom + 12; if (top + 220 > innerHeight) top = Math.max(10, r.top - 230); }
+    box.style.left = left + 'px'; box.style.top = top + 'px';
+  }, 350);
+}
+
 // ---------- play
 let raf = null, lastT = 0;
 function play() { st.playing = true; $('btnPlay').textContent = '⏸'; lastT = performance.now(); raf = requestAnimationFrame(loop); }
@@ -299,6 +342,23 @@ function readHash() { const p = new URLSearchParams(location.hash.slice(1)); ret
 
 // ---------- setup
 const sky = new SkyView($('sky'));
+let v3d = null, viewMode = 'astro';
+async function init3D() {
+  try {
+    const m = await import('./view3d.js'); await m.loadDem('data/dem');
+    v3d = new m.View3D($('view3d')); v3d.onLook = () => st.series && drawSky();
+  } catch (e) { console.warn('3D unavailable', e); viewMode = 'chart'; setView('chart'); $('terrainNote').textContent = '3D view unavailable on this device — showing sky chart'; }
+}
+async function update3DSite() {
+  if (!v3d) return; await v3d.setSite(st.site); $('terrainNote').textContent = v3d.terrainNote;
+  const sun = A.sunAt(st.site.obs, st.cursor); drawSky(); v3d.lookToward(sun.az);
+}
+function setView(m) {
+  viewMode = m; document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('active', b.dataset.view === m));
+  const chart = m === 'chart' || !v3d; $('sky').classList.toggle('hidden', !chart); $('view3d').classList.toggle('hidden', chart);
+  $('viewHint').textContent = chart ? '⟷ drag to look around · real LOLA skyline · vertical scale exaggerated' : m === 'astro' ? '⟷ drag to look around · real NASA LOLA terrain · true scale' : 'drag to orbit · scroll/pinch to zoom · purple beam = your landing site';
+  if (v3d && !chart) v3d.setMode(m); if (chart) sky.draw(); if (st.series) drawSky();
+}
 const map = new PoleMap($('map'), $('mapLegend'), async (lat, lon) => setSite(await buildSite(lat, lon)));
 
 function setMode(m) {
@@ -331,6 +391,9 @@ async function main() {
   else if (h.lat) site = await buildSite(+h.lat, +h.lon);
   else site = st.sitesData[0];
   $('siteSelect').value = site.id || 'custom';
+  await init3D();
+  document.querySelectorAll('[data-view]').forEach(b => b.onclick = () => setView(b.dataset.view));
+  setView(v3d ? 'astro' : 'chart');
   setMode(['explore', 'plan', 'launch'].includes(h.m) ? h.m : 'explore');
   await setSite(site);
   map.draw();
@@ -360,8 +423,10 @@ async function main() {
   $('btnPin').onclick = () => { if (!st.pins.includes(st.site)) st.pins.push(st.site); drawCompare(); toast('Pinned — pick another site to compare'); };
   $('btnCsv').onclick = exportCsv;
   $('btnLaunch').onclick = launch;
-  try { if (localStorage.getItem('sl_intro') === '1') $('intro').remove(); } catch {}
-  $('introX') && ($('introX').onclick = () => { $('intro').remove(); try { localStorage.setItem('sl_intro', '1'); } catch {} });
+  $('btnTour').onclick = () => showTour(0);
+  $('tourNext').onclick = () => showTour(tourI + 1); $('tourBack').onclick = () => showTour(tourI - 1); $('tourSkip').onclick = () => showTour(-1);
+  let seen = false; try { seen = localStorage.getItem('sl_tour') === '1'; } catch {}
+  if (!seen && !location.hash) setTimeout(() => showTour(0), 900);
   $('btnShare').onclick = async () => { writeHash(); try { await navigator.clipboard.writeText(location.href); toast('Link copied — anyone can open this exact mission'); } catch { toast(location.href); } };
   $('btnAbout').onclick = () => { $('aboutBody').innerHTML = aboutHTML(); $('about').showModal(); };
   // timeline scrubbing
