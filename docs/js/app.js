@@ -442,4 +442,17 @@ async function main() {
   // face the Sun at start
   sky.lookAt(A.sunAt(st.site.obs, st.cursor).az);
 }
+// small control API (used to record the demo video frame by frame)
+window.SL = {
+  st, setCursor(ms) { st.cursor = ms; drawSky(); drawTimeline(); drawCards(); },
+  async site(id) { const x = st.sitesData.find(s => s.id === id); $('siteSelect').value = id; await setSite(x); },
+  mode: m => setMode(m), view: m => setView(m), v3d: () => v3d,
+  render() { if (v3d) v3d.renderer.render(v3d.scene, v3d.camera); },
+  landing(iso) { st.landingMs = Date.parse(iso); $('inDate').value = iso.slice(0, 16); st.cursor = 0; recompute(); },
+  lander(l) { st.lander = l; renderLanders(); },
+  simulate() { const L = LANDERS[st.lander]; return simulate(st.series, L, st.missionDays, st.site.slope, st.delay, haversineKm(st.planned, st.site)); },
+  show(r) { st.lastResult = r; drawTimeline(); showResult(r); },
+  planB: () => findPlanB(),
+};
+
 main().catch(e => { console.error(e); document.body.insertAdjacentHTML('afterbegin', `<p style="color:#f87171;padding:12px">Failed to load data: ${e.message}</p>`); });
