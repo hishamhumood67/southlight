@@ -1,0 +1,18 @@
+{
+ "spacing_m": 2000.0,
+ "nhalf": 75,
+ "n": 151,
+ "tile": 16,
+ "ntiles": 10,
+ "stats": [
+  "height_m",
+  "slope_deg",
+  "sun_frac_2027",
+  "earth_frac_2027",
+  "longest_night_h_2027"
+ ],
+ "mask_encoding": "uint8 v -> elevation deg = v/10 - 10; 360 azimuths, 0=N clockwise",
+ "projection": "LOLA south polar stereographic, R=1737.4 km, x=2R tan(pi/4+lat/2) sin(lon), y=... cos(lon)",
+ "source": "LRO LOLA LDEM_85S_40M + LDEM_75S_240M (PDS)",
+ "mast_m": 2.0
+}

@@ -1,0 +1,25 @@
+{
+ "start_utc": "2026-11-01T00:00:00Z",
+ "step_hours": 1,
+ "count": 19008,
+ "fields": [
+  "sun_x",
+  "sun_y",
+  "sun_z",
+  "earth_x",
+  "earth_y",
+  "earth_z"
+ ],
+ "units": "km",
+ "frame": "MOON_ME (lunar Mean Earth / Polar Axis, DE440)",
+ "correction": "LT+S (light time + stellar aberration), observer = Moon centre",
+ "kernels": [
+  "naif0012.tls",
+  "pck00011.tpc",
+  "de440s.bsp",
+  "moon_pa_de440_200625.bpc",
+  "moon_de440_250416.tf"
+ ],
+ "source": "NASA/JPL NAIF SPICE generic kernels",
+ "moon_radius_km": 1737.4
+}
